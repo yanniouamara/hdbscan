@@ -4,8 +4,8 @@
 # the different use cases that may arise.
 
 import numpy as np
-
-from sklearn.neighbors import KDTree, BallTree
+from scipy.sparse import issparse
+from sklearn.neighbors import KDTree, BallTree, NearestNeighbors
 from .dist_metrics import DistanceMetric
 from ._hdbscan_tree import recurse_leaf_dfs
 from ._prediction_utils import (get_tree_row_with_child,
@@ -96,11 +96,11 @@ class PredictionData(object):
                 [recurse_leaf_dfs(self.cluster_tree, child) for child in children], [])
 
     def __init__(self, data, condensed_tree, min_samples,
-                 tree_type='kdtree', metric='euclidean', **kwargs):
+                 tree_type='kd_tree', metric='euclidean', **kwargs):
         self.raw_data = data.astype(np.float64)
-        self.tree = self._tree_type_map[tree_type](self.raw_data,
-                                                   metric=metric, **kwargs)
-        self.core_distances = self.tree.query(data, k=min_samples)[0][:, -1]
+        self.tree = NearestNeighbors(algorithm=tree_type, metric=metric).fit(X=self.raw_data, **kwargs)
+        self.core_distances = self.tree.kneighbors(data,
+                                                   n_neighbors=min_samples)[0][:, -1]
         self.dist_metric = DistanceMetric.get_metric(metric, **kwargs)
 
         selected_clusters = sorted(condensed_tree._select_clusters())
@@ -372,7 +372,8 @@ def approximate_predict(clusterer, points_to_predict):
                          ' Try fitting with prediction_data=True set,'
                          ' or run generate_prediction_data on the clusterer')
 
-    points_to_predict = np.asarray(points_to_predict)
+    if not issparse(points_to_predict):
+        points_to_predict = np.asarray(points_to_predict)
 
     if points_to_predict.shape[1] != \
             clusterer.prediction_data_.raw_data.shape[1]:
@@ -390,8 +391,8 @@ def approximate_predict(clusterer, points_to_predict):
 
     min_samples = clusterer.min_samples or clusterer.min_cluster_size
     neighbor_distances, neighbor_indices = \
-        clusterer.prediction_data_.tree.query(points_to_predict,
-                                              k=2 * min_samples)
+        clusterer.prediction_data_.\
+            tree.kneighbors(points_to_predict, n_neighbors=2 * min_samples)
 
     for i in range(points_to_predict.shape[0]):
         label, prob = _find_cluster_and_probability(

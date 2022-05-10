@@ -934,8 +934,8 @@ class HDBSCAN(BaseEstimator, ClusterMixin):
             * ``boruvka_balltree``
 
     leaf_size: int, optional (default=40)
-        If using a space tree algorithm (kdtree, or balltree) the number
-        of points ina leaf node of the tree. This does not alter the
+        If using a space tree algorithm (kd_tree, or ball_tree) the number
+        of points in a leaf node of the tree. This does not alter the
         resulting clustering, but may have an effect on the runtime
         of the algorithm.
 
@@ -1238,9 +1238,9 @@ class HDBSCAN(BaseEstimator, ClusterMixin):
         if self.metric in FAST_METRICS:
             min_samples = self.min_samples or self.min_cluster_size
             if self.metric in KDTree.valid_metrics:
-                tree_type = "kdtree"
+                tree_type = "kd_tree"
             elif self.metric in BallTree.valid_metrics:
-                tree_type = "balltree"
+                tree_type = "ball_tree"
             else:
                 warn("Metric {} not supported for prediction data!".format(self.metric))
                 return
